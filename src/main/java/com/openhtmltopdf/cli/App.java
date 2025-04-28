@@ -6,7 +6,9 @@ import java.util.concurrent.Callable;
 import java.util.logging.Level;
 
 import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import com.openhtmltopdf.util.XRLog;
 
 import org.jsoup.Jsoup;
@@ -31,6 +33,13 @@ public class App
             required = true
         )
         File input;
+
+        @Option(
+            names = { "--font", "-f" },
+            description = "Load truetype font",
+            paramLabel = "<name>,<weight>,<filename>"
+        )
+        String[] fonts;
 
         @Option(
             names = { "--output", "-o" },
@@ -64,6 +73,12 @@ public class App
         )
         boolean block;
 
+        @Option(
+            names = { "--accessible", "-a"},
+            description = "Force PDF/UA Conformance"
+        )
+        boolean accessible;
+
         @Override
         public Integer call() throws Exception {
             if (quiet && !verbose) {
@@ -81,10 +96,26 @@ public class App
             try (FileOutputStream os = new FileOutputStream(output)) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
 
+                builder.useSVGDrawer(new BatikSVGDrawer());
+
                 if (block) {
                     builder.useUriResolver((base, rel) -> null);
                     builder.useExternalResourceAccessControl((uri, type) -> false, ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
                     builder.useExternalResourceAccessControl((uri, type) -> false, ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
+                }
+
+                for(String font : fonts) {
+                    String[] split = font.split(",");
+                    if (split.length != 3) {
+                        System.err.println("Invalid font specification: " + font);
+                        return 1;
+                    }
+
+                    String fontName = split[0];
+                    int fontWeight = Integer.parseInt(split[1]);
+                    String fontFile = split[2];
+                    System.out.println("Loading font '"+fontFile+"' as '"+fontName+"' (weight "+fontWeight+")");
+                    builder.useFont(new File(fontFile), fontName, fontWeight, FontStyle.NORMAL, false);
                 }
 
                 if (!xhtml) {
@@ -93,6 +124,11 @@ public class App
                     builder.withW3cDocument(doc, input.getAbsoluteFile().toURI().toURL().toExternalForm());
                 } else {
                     builder.withFile(input);
+                }
+
+                if (accessible) {
+                    builder.usePdfUaAccessbility(true);
+                    builder.usePdfAConformance(PdfRendererBuilder.PdfAConformance.PDFA_3_U);
                 }
 
                 builder.toStream(os);
