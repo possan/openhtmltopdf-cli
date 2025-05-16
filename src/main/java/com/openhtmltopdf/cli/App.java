@@ -2,6 +2,7 @@ package com.openhtmltopdf.cli;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
@@ -11,10 +12,6 @@ import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import com.openhtmltopdf.util.XRLog;
-
-import org.jsoup.Jsoup;
-import org.jsoup.helper.W3CDom;
-import org.w3c.dom.Document;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -124,18 +121,16 @@ public class App
                         int fontWeight = Integer.parseInt(split[1]);
                         String fontFile = split[2];
                         System.out.println("Loading font '"+fontFile+"' as '"+fontName+"' (weight "+fontWeight+")");
-                        builder.useFont(new File(fontFile), fontName, fontWeight, FontStyle.NORMAL, false);
+                        builder.useFont(new File(fontFile), fontName, fontWeight, FontStyle.NORMAL, true);
                     }
                 }
 
                 if (!xhtml) {
-                    org.jsoup.nodes.Document jsoup = Jsoup.parse(input, "UTF-8");
-                    Document doc = new W3CDom().fromJsoup(jsoup);
-
+                    String html = new String(Files.readAllBytes(Paths.get(input.getAbsolutePath())));
                     if (basepath != null) {
-                        builder.withW3cDocument(doc, Paths.get(basepath).normalize().toUri().toURL().toExternalForm());
+                        builder.withHtmlContent(html ,Paths.get(basepath).normalize().toUri().toURL().toExternalForm());
                     } else{
-                        builder.withW3cDocument(doc, input.getAbsoluteFile().toURI().toURL().toExternalForm());
+                        builder.withHtmlContent(html , input.getAbsoluteFile().toURI().toURL().toExternalForm());
                     }
                 } else {
                     builder.withFile(input);
